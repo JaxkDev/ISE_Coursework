@@ -2,9 +2,9 @@
 #
 # Modified to Linear SVM
 
-SRC_DIR = "./src/improved/"
+SRC_DIR = "./src/improved-1/"
 TMP_DIR = SRC_DIR + "tmp/"
-RESULTS_DIR = "./results/improved/"
+RESULTS_DIR = "./results/improved-1/"
 DATASET_DIR = "./dataset/"
 
 PROJECTS = ['pytorch', 'tensorflow', 'keras', 'incubator-mxnet', 'caffe']
