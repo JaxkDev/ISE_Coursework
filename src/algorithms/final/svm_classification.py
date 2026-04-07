@@ -1,19 +1,20 @@
-# Source baseline/br_classification
+# Source improved-5/svm_classification
 #
-# Modified to Linear SVM
 
-SRC_DIR = "./src/improved-1/"
+
+SRC_DIR = "./src/algorithms/final/"
 TMP_DIR = SRC_DIR + "tmp/"
-RESULTS_DIR = "./results/improved-1/"
+RESULTS_DIR = "./results/final/"
 DATASET_DIR = "./dataset/"
 
-PROJECTS = ['pytorch', 'tensorflow', 'keras', 'incubator-mxnet', 'caffe']
-REPEAT_TIMES = [5, 10, 20, 50, 100]
+PROJECTS = ['pytorch', 'tensorflow', 'keras', 'incubator-mxnet', 'caffe', 'all']
+REPEAT_TIMES = [10, 20, 50]
 
 ########## 1. Import required libraries ##########
 
 import pandas as pd
 import numpy as np
+import time
 import re
 
 # Text and feature engineering
@@ -21,16 +22,25 @@ from sklearn.feature_extraction.text import TfidfVectorizer
 
 # Evaluation and tuning
 from sklearn.model_selection import train_test_split, GridSearchCV
-from sklearn.metrics import (accuracy_score, precision_score, recall_score,
+from sklearn.metrics import (accuracy_score, confusion_matrix, matthews_corrcoef, precision_score, recall_score,
                              f1_score, roc_curve, auc)
 
 # Classifier
 from sklearn.svm import LinearSVC
 
-# Text cleaning & stopwords
 import nltk
-nltk.download('stopwords')
-from nltk.corpus import stopwords
+from nltk.stem import WordNetLemmatizer
+nltk.download('wordnet')
+
+lemmatizer = WordNetLemmatizer()
+
+def lemmatize_text(text):
+    """Lemmatize text using WordNetLemmatizer."""
+    return ' '.join([lemmatizer.lemmatize(word) for word in text.split()])
+
+
+from sklearn.feature_selection import SelectKBest, chi2
+from sklearn.pipeline import Pipeline
 
 ########## 2. Define text preprocessing methods ##########
 
@@ -51,30 +61,9 @@ def remove_emoji(text):
                                "]+", flags=re.UNICODE)
     return emoji_pattern.sub(r'', text)
 
-# Stopwords
-NLTK_stop_words_list = stopwords.words('english')
-custom_stop_words_list = ['...']  # You can customize this list as needed
-final_stop_words_list = NLTK_stop_words_list + custom_stop_words_list
-
-def remove_stopwords(text):
-    """Remove stopwords from the text."""
-    return " ".join([word for word in str(text).split() if word not in final_stop_words_list])
-
-def clean_str(string):
-    """
-    Clean text by removing non-alphanumeric characters,
-    and convert it to lowercase.
-    """
-    string = re.sub(r"[^A-Za-z0-9(),.!?\'\`]", " ", string)
-    string = re.sub(r"\'s", " \'s", string)
-    string = re.sub(r"\'ve", " \'ve", string)
-    string = re.sub(r"\)", " ) ", string)
-    string = re.sub(r"\?", " ? ", string)
-    string = re.sub(r"\s{2,}", " ", string)
-    string = re.sub(r"\\", "", string)
-    string = re.sub(r"\'", "", string)
-    string = re.sub(r"\"", "", string)
-    return string.strip().lower()
+def lowercase_text(text):
+    """Convert text to lowercase."""
+    return text.lower()
 
 ########## 3. Download & read data ##########
 import os
@@ -85,10 +74,20 @@ if not os.path.exists(RESULTS_DIR):
     os.makedirs(RESULTS_DIR)
 
 for project in PROJECTS:
-    path = f'{project}.csv'
 
-    pd_all = pd.read_csv(DATASET_DIR + path)
-    pd_all = pd_all.sample(frac=1, random_state=999)  # Shuffle
+    pd_all = pd.DataFrame()
+
+    if project == 'all':
+        # If 'all', read and concatenate all project files
+        for proj in ['pytorch', 'tensorflow', 'keras', 'incubator-mxnet', 'caffe']:
+            path = f'{proj}.csv'
+            pd_temp = pd.read_csv("./dataset/"+path)
+            pd_all = pd.concat([pd_all, pd_temp], ignore_index=True)
+            pd_all = pd_all.sample(frac=1, random_state=51003)  # Shuffle
+    else:
+        path = f'{project}.csv'
+        pd_all = pd.read_csv("./dataset/"+path)
+        pd_all = pd_all.sample(frac=1, random_state=51003)  # Shuffle
 
     # Merge Title and Body into a single column; if Body is NaN, use Title only
     pd_all['Title+Body'] = pd_all.apply(
@@ -126,29 +125,44 @@ for project in PROJECTS:
     # Text cleaning
     data[text_col] = data[text_col].apply(remove_html)
     data[text_col] = data[text_col].apply(remove_emoji)
-    data[text_col] = data[text_col].apply(remove_stopwords)
-    data[text_col] = data[text_col].apply(clean_str)
+    data[text_col] = data[text_col].apply(lowercase_text)
+    # Lemmatization
+    data[text_col] = data[text_col].apply(lemmatize_text)
+
+    pipeline = Pipeline([
+        ('chi2', SelectKBest(chi2)),
+        ('svc', LinearSVC(
+            max_iter=5000, 
+            class_weight='balanced', 
+            random_state=51003
+        ))
+    ])
 
     # ========== Hyperparameter grid ==========
-    # We use logspace for var_smoothing: [1e-12, 1e-11, ..., 1]
+    # GridSearch now tunes chi2 k AND SVM C together:
     params = {
-        'C': [0.001, 0.01, 0.1, 1, 10, 100],  # Regularization
+        'chi2__k': [100, 250, 500, 750, 1000],
+        'svc__C': [0.001, 0.01, 0.1, 1, 10, 100],
     }
 
 
     for REPEAT in REPEAT_TIMES:
-        print(f"\n--- Running Linear SVM + TF-IDF for project: {project} with {REPEAT} repeats ---")
+        print(f"\n--- [Final] Running Linear SVM + Enhanced TF-IDF for project: {project} with {REPEAT} repeats ---")
         # Lists to store metrics across repeated runs
         accuracies  = []
         precisions  = []
         recalls     = []
         f1_scores   = []
         auc_values  = []
+        mcc_values  = []
+        cm_sum = np.array([[0, 0], [0, 0]])  # Initialize confusion matrix sum
+        train_times = []
+        pred_times  = []
         for repeated_time in range(REPEAT):
             # --- 4.1 Split into train/test ---
             indices = np.arange(data.shape[0])
             train_index, test_index = train_test_split(
-                indices, test_size=0.2, random_state=repeated_time
+                indices, test_size=0.3, random_state=repeated_time, stratify=data['sentiment'] #class balance stratification
             )
 
             train_text = data[text_col].iloc[train_index]
@@ -160,27 +174,32 @@ for project in PROJECTS:
             # --- 4.2 TF-IDF vectorization ---
             tfidf = TfidfVectorizer(
                 ngram_range=(1, 2),
-                max_features=1000  # Adjust as needed
+                max_features=5000,  # Adjust as needed
+                sublinear_tf=True
             )
-            X_train = tfidf.fit_transform(train_text).toarray()
-            X_test = tfidf.transform(test_text).toarray()
+            X_train = tfidf.fit_transform(train_text)
+            X_test = tfidf.transform(test_text)
         
             # --- 4.3 Linear SVC model & GridSearch ---
-            clf = LinearSVC()
-            grid = GridSearchCV(
-                clf,
-                params,
-                cv=5,              # 5-fold CV (can be changed)
-                scoring='roc_auc'  # Using roc_auc as the metric for selection
-            )
+            grid = GridSearchCV(pipeline, params, cv=5, scoring='f1_macro', n_jobs=-1)
             grid.fit(X_train, y_train)
 
-            # Retrieve the best model
-            best_clf = grid.best_estimator_
+            # Train the best model (for timings, we could just use best estimator straight away but to be consistent for timing recordings, we retrain it here)
+            TRAIN_TIME = time.perf_counter_ns()
+            
+            best_clf = pipeline.set_params(**grid.best_params_)
             best_clf.fit(X_train, y_train)
 
+            TRAIN_TIME = time.perf_counter_ns() - TRAIN_TIME
+            train_times.append(TRAIN_TIME)
+
             # --- 4.4 Make predictions & evaluate ---
-            y_pred = best_clf.predict(X_test)
+            PRED_TIME = time.perf_counter_ns()
+
+            y_pred = grid.predict(X_test)
+
+            PRED_TIME = time.perf_counter_ns() - PRED_TIME
+            pred_times.append(PRED_TIME)
 
             # Accuracy
             acc = accuracy_score(y_test, y_pred)
@@ -199,11 +218,19 @@ for project in PROJECTS:
             f1_scores.append(f1)
 
             # AUC
-            # If labels are 0/1 only, this works directly.
-            # If labels are something else, adjust pos_label accordingly.
-            fpr, tpr, _ = roc_curve(y_test, y_pred, pos_label=1)
+            y_score = grid.decision_function(X_test)
+
+            fpr, tpr, _ = roc_curve(y_test, y_score)
             auc_val = auc(fpr, tpr)
             auc_values.append(auc_val)
+
+            # MCC
+            mcc = matthews_corrcoef(y_test, y_pred)
+            mcc_values.append(mcc)
+
+            # Confusion Matrix
+            cm = confusion_matrix(y_test, y_pred) # [[tn, fp], [fn, tp]]
+            cm_sum += cm
 
         # --- 4.5 Aggregate results ---
         final_accuracy  = np.mean(accuracies)
@@ -211,15 +238,22 @@ for project in PROJECTS:
         final_recall    = np.mean(recalls)
         final_f1        = np.mean(f1_scores)
         final_auc       = np.mean(auc_values)
+        final_mcc       = np.mean(mcc_values)
+        final_cm        = cm_sum / REPEAT  # Average confusion matrix
+        final_train_time = np.mean(train_times, dtype=np.int64)
+        final_pred_time  = np.mean(pred_times, dtype=np.int64)
 
         #print("=== Naive Bayes + TF-IDF Results ===")
-        print(f"Number of repeats:     {REPEAT}")
-        print(f"Average Accuracy:      {final_accuracy:.4f}")
-        print(f"Average Precision:     {final_precision:.4f}")
-        print(f"Average Recall:        {final_recall:.4f}")
-        print(f"Average F1 score:      {final_f1:.4f}")
-        print(f"Average AUC:           {final_auc:.4f}")
-
+        print(f"Number of repeats:       {REPEAT}")
+        print(f"Average Training Time:   {final_train_time}")
+        print(f"Average Prediction Time: {final_pred_time}")
+        print(f"Average Accuracy:        {final_accuracy:.4f}")
+        print(f"Average Precision:       {final_precision:.4f}")
+        print(f"Average Recall:          {final_recall:.4f}")
+        print(f"Average F1 score:        {final_f1:.4f}")
+        print(f"Average AUC:             {final_auc:.4f}")
+        print(f"Average MCC:             {final_mcc:.4f}")
+        print(f"Average Confusion Matrix:\n{final_cm}")
         # Save final results to CSV (append mode)
         try:
             # Attempt to check if the file already has a header
@@ -231,11 +265,15 @@ for project in PROJECTS:
         df_log = pd.DataFrame(
             {
                 'repeated_times': [REPEAT],
+                'Training_Time': [final_train_time],
+                'Prediction_Time': [final_pred_time],
                 'Accuracy': [final_accuracy],
                 'Precision': [final_precision],
                 'Recall': [final_recall],
                 'F1': [final_f1],
                 'AUC': [final_auc],
+                'MCC': [final_mcc],
+                'CM': [final_cm.tolist()],  # Store confusion matrix as a list [[tn, fp], [fn, tp]]
                 'CV_list(AUC)': [str(auc_values)]
             }
         )
