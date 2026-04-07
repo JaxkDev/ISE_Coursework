@@ -218,3 +218,11 @@ __marimo__/
 .streamlit/secrets.toml
 
 **/tmp
+
+Resources/
+*.synctex.gz
+*.fdb_latexmk
+*.fls
+*.aux
+*.log
+*.out

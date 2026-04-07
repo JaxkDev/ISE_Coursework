@@ -1,0 +1,59 @@
+\documentclass{article}
+\usepackage[utf8]{inputenc}
+\usepackage[left=0.5in,right=0.5in,top=2cm,bottom=2cm]{geometry}
+\usepackage{crop,graphicx,amsmath,array,color,amssymb,flushend,stfloats,amsthm,chngpage,times,fancyhdr,lipsum,lastpage,subcaption,cancel,algpseudocode,hyperref}
+
+%%%%%%%%%%%%   Header and Footer  %%%%%%%%%%%%%
+\pagestyle{fancy}
+
+\fancypagestyle{plain}{%
+  \renewcommand{\headrulewidth}{0pt}%
+  \fancyhf{}%
+  \fancyfoot[R]{Page \bf\thepage\ \rm of \bf\pageref{LastPage}}%
+}
+
+
+%%%% Customise Titles and Headers: %%%%
+\title{Bug Report Classifier - Manual}
+\author{Jack Honour [3063159]}
+\date{}
+
+\fancyhf{}
+\fancyfoot[L]{Jack Honour [3063159]}
+\fancyhead[R]{University of Birmingham \LaTeX{}}
+\fancyfoot[R]{Page \bf\thepage\ \rm of \bf\pageref{LastPage}}
+\fancyhead[L]{Bug Report Classifier - Manual}
+
+
+\begin{document}
+
+%%%%%%%%%%%% Make Title and Format Lines %%%%%%%%%%%%
+\maketitle											%
+\vspace{-112px}										%
+\noindent\rule{\linewidth}{1pt} \par				%
+\vspace{100px}										%
+\vspace{-20px}										%
+\noindent\rule{\linewidth}{1pt} \par				%
+\vspace{10px}										%
+%%%%%%%%%%%%%%%%%%% Insert Logos %%%%%%%%%%%%%%%%%%%%	
+\vspace{-85px}										%
+\noindent											%
+\begin{minipage}{0.5\textwidth}\begin{flushleft}	%
+\hspace{20px}										%
+\includegraphics[scale = 0.06]{Resources/UoB}		%
+\end{flushleft}\end{minipage}						%
+\begin{minipage}{0.5\textwidth}\begin{flushright}	%
+\includegraphics[scale = 0.06]{Resources/UoB}		%
+\hspace*{20px}										%
+\end{flushright}\end{minipage}						%
+\vspace{20px}										%
+%%%%%%%%%%%%%%%% Headers and Footers %%%%%%%%%%%%%%%%
+
+\fontsize{11}{16}\selectfont
+\setlength{\parindent}{0pt} % Paragraph indent
+\setlength{\parskip}{2pt}   % Space between paragraphs
+
+\section*{Manual}
+TODO: ADD.
+
+\end{document}
