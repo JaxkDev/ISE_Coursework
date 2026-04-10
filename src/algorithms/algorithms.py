@@ -1,8 +1,9 @@
-from abc import ABC, abstractmethod
-from typing import Optional, Union, Any
-from numpy.typing import ArrayLike, NDArray #use this to match predict sig from the lib.
 
-from src.dataset import print_dataset_details, preprocess_datasets, load_dataset
+import re
+from typing import Optional, Any
+from abc import ABC, abstractmethod
+
+from src.dataset import load_dataset
 
 class BaseAlgorithm(ABC):
     """
@@ -33,6 +34,43 @@ class BaseAlgorithm(ABC):
         Perform any necessary preprocessing on the loaded data.
         """
         raise NotImplementedError("Method 'preprocess_data' not implemented.")
+    
+    def remove_html(self, text):
+        """Remove HTML tags using a regex."""
+        html = re.compile(r'<.*?>')
+        return html.sub(r'', text)
+
+    def remove_emoji(self, text):
+        """Remove emojis using a regex pattern."""
+        emoji_pattern = re.compile("["
+                                u"\U0001F600-\U0001F64F"  # emoticons
+                                u"\U0001F300-\U0001F5FF"  # symbols & pictographs
+                                u"\U0001F680-\U0001F6FF"  # transport & map symbols
+                                u"\U0001F1E0-\U0001F1FF"  # flags
+                                u"\U00002702-\U000027B0"
+                                u"\U000024C2-\U0001F251"  # enclosed characters
+                                "]+", flags=re.UNICODE)
+        return emoji_pattern.sub(r'', text)
+
+    def clean_str(self, string):
+        """
+        Clean text by removing non-alphanumeric characters,
+        and convert it to lowercase.
+        """
+        string = re.sub(r"[^A-Za-z0-9(),.!?\'\`]", " ", string)
+        string = re.sub(r"\'s", " \'s", string)
+        string = re.sub(r"\'ve", " \'ve", string)
+        string = re.sub(r"\)", " ) ", string)
+        string = re.sub(r"\?", " ? ", string)
+        string = re.sub(r"\s{2,}", " ", string)
+        string = re.sub(r"\\", "", string)
+        string = re.sub(r"\'", "", string)
+        string = re.sub(r"\"", "", string)
+        return string.strip().lower()
+
+    def lowercase_text(self, text):
+        """Convert text to lowercase."""
+        return text.lower()
 
     @abstractmethod
     def load_model(self, fresh: bool = True) -> None:

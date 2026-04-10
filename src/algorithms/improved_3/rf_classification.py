@@ -5,11 +5,11 @@
 
 import numpy as np
 import time
-import re
 
 from tqdm import tqdm
 
 # Text and feature engineering
+import nltk
 from sklearn.feature_extraction.text import TfidfVectorizer
 
 # Evaluation and tuning
@@ -28,60 +28,24 @@ from typing import Optional, Any
 
 class RFAlgorithm(BaseAlgorithm):
 
+    def __init__(self):
+        super().__init__()
+        nltk.download('stopwords', quiet=True)
+        from nltk.corpus import stopwords
+        self.stop_words = stopwords.words('english') + ['...']  # You can customize this list as needed
+
+    def remove_stopwords(self, text):
+        """Remove stopwords from the text."""
+        return " ".join([word for word in str(text).split() if word not in self.stop_words])
+
     def preprocess_data(self) -> None:
         if self.data is None:
             raise ValueError("No data loaded. Please load a dataset before preprocessing.")
-        
-        def remove_html(text):
-            """Remove HTML tags using a regex."""
-            html = re.compile(r'<.*?>')
-            return html.sub(r'', text)
-
-        def remove_emoji(text):
-            """Remove emojis using a regex pattern."""
-            emoji_pattern = re.compile("["
-                                    u"\U0001F600-\U0001F64F"  # emoticons
-                                    u"\U0001F300-\U0001F5FF"  # symbols & pictographs
-                                    u"\U0001F680-\U0001F6FF"  # transport & map symbols
-                                    u"\U0001F1E0-\U0001F1FF"  # flags
-                                    u"\U00002702-\U000027B0"
-                                    u"\U000024C2-\U0001F251"  # enclosed characters
-                                    "]+", flags=re.UNICODE)
-            return emoji_pattern.sub(r'', text)
-
-        # Stopwords
-        import nltk
-        nltk.download('stopwords', quiet=True) # here because of UI log being annoying with the download message every time.
-        from nltk.corpus import stopwords
-
-        NLTK_stop_words_list = stopwords.words('english')
-        custom_stop_words_list = ['...']  # You can customize this list as needed
-        final_stop_words_list = NLTK_stop_words_list + custom_stop_words_list
-
-        def remove_stopwords(text):
-            """Remove stopwords from the text."""
-            return " ".join([word for word in str(text).split() if word not in final_stop_words_list])
-
-        def clean_str(string):
-            """
-            Clean text by removing non-alphanumeric characters,
-            and convert it to lowercase.
-            """
-            string = re.sub(r"[^A-Za-z0-9(),.!?\'\`]", " ", string)
-            string = re.sub(r"\'s", " \'s", string)
-            string = re.sub(r"\'ve", " \'ve", string)
-            string = re.sub(r"\)", " ) ", string)
-            string = re.sub(r"\?", " ? ", string)
-            string = re.sub(r"\s{2,}", " ", string)
-            string = re.sub(r"\\", "", string)
-            string = re.sub(r"\'", "", string)
-            string = re.sub(r"\"", "", string)
-            return string.strip().lower()
     
-        self.data['text'] = self.data['text'].apply(remove_html)
-        self.data['text'] = self.data['text'].apply(remove_emoji)
-        self.data['text'] = self.data['text'].apply(remove_stopwords)
-        self.data['text'] = self.data['text'].apply(clean_str)
+        self.data['text'] = self.data['text'].apply(self.remove_html)
+        self.data['text'] = self.data['text'].apply(self.remove_emoji)
+        self.data['text'] = self.data['text'].apply(self.remove_stopwords)
+        self.data['text'] = self.data['text'].apply(self.clean_str)
 
 
     def load_model(self, fresh: bool = True) -> None:
@@ -116,12 +80,12 @@ class RFAlgorithm(BaseAlgorithm):
             y_test  = self.data['sentiment'].iloc[test_index]
 
             # TF-IDF vectorization
-            tfidf = TfidfVectorizer(
+            self.tfidf = TfidfVectorizer(
                 ngram_range=(1, 2),
                 max_features=1000
             )
-            X_train = tfidf.fit_transform(train_text)
-            X_test = tfidf.transform(test_text)
+            X_train = self.tfidf.fit_transform(train_text)
+            X_test = self.tfidf.transform(test_text)
 
             params = {
                 'n_estimators': [100, 200],
@@ -130,11 +94,11 @@ class RFAlgorithm(BaseAlgorithm):
                 #'min_samples_split': [2, 5]
             }
         
-            clf = RandomForestClassifier(class_weight='balanced', random_state=seed, n_jobs=1) 
+            clf = RandomForestClassifier(class_weight='balanced', random_state=seed, n_jobs=-1) 
             grid = GridSearchCV(
                 clf,
                 params,
-                n_jobs=1,          # Must be 1 for reproducibility in timing; set to -1 for faster tuning if reproducibility is not a concern
+                n_jobs=-1,
                 cv=5,              # 5-fold CV (can be changed)
                 scoring='f1_macro' # Using f1_macro as the metric for selection
             )
@@ -143,7 +107,7 @@ class RFAlgorithm(BaseAlgorithm):
             # Train the best model (for timings, we could just use best estimator straight away but to be consistent for timing recordings, we retrain it here)
             TRAIN_TIME = time.perf_counter_ns()
 
-            self.model = RandomForestClassifier(**grid.best_params_, class_weight='balanced', random_state=seed, n_jobs=1)
+            self.model = RandomForestClassifier(**grid.best_params_, class_weight='balanced', random_state=seed, n_jobs=-1)
             self.model.fit(X_train, y_train)
 
             TRAIN_TIME = time.perf_counter_ns() - TRAIN_TIME
@@ -204,4 +168,11 @@ class RFAlgorithm(BaseAlgorithm):
         if self.model is None:
             raise ValueError("Model not loaded. Please load the model before making predictions.")
         
-        return self.model.predict([X])[0]
+        X = self.remove_html(X)
+        X = self.remove_emoji(X)
+        X = self.remove_stopwords(X)
+        X = self.clean_str(X)
+
+        X_vec = self.tfidf.transform([X])
+
+        return self.model.predict(X_vec)[0]

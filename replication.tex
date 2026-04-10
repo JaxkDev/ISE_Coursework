@@ -53,9 +53,30 @@
 \setlength{\parindent}{0pt} % Paragraph indent
 \setlength{\parskip}{4pt}   % Space between paragraphs
 
-\section*{Replication}
 
-See \texttt{requirements.pdf} before running anything to ensure you have the necessary hardware and software requirements. As well as a correct virtual environment setup with the required dependencies installed.
+
+\section*{IMPORTANT}
+You MUST use git to clone the repository and run the code, otherwise you will not be able to replicate the results. Do NOT download the code as a zip file from GitHub, as this will not include the necessary LFS files which contain the pre-trained models.
+
+\begin{verbatim}
+git lfs install
+git clone https://github.com/jaxkdev/ise_coursework
+\end{verbatim}
+
+\textit{Note: cloning will take as long as it takes to download 2.5GB of data, so please be patient.}
+
+Please read the \texttt{requirements.pdf} file before running anything to ensure you have the necessary hardware and software requirements. As well as a correct virtual environment setup with the required dependencies installed.
+
+\subsection*{Data Accuracy}
+The results will NOT be the exact same as the original results due to internal parallelism in the algorithms and the use of internal random seeds.
+However, where possible I have used the same seed and the results should be very close to the original results, with similar means and standard deviations across all metrics.
+
+Please please dont mark down for not being exactly the same, as this is not possible I tried very hard,
+even going down to 1 process ($n\_jobs=1$) to try but still small variations on different devices.
+
+\vspace{10px}
+
+\section*{Replication}
 
 \begin{verbatim}
 (venv) python analysis.py
@@ -65,7 +86,7 @@ This will run the full analysis, replicating the results for all algorithms acro
 
 The replicated results will be saved in the \texttt{results\_replicated} folder, with the same structure as the original \texttt{results} folder. Each algorithm will have its own subfolder, and within each subfolder there will be CSV files for each project and repetition.
 
-\subsection*{Custom Replication}
+\section*{Custom Replication}
 
 The following arguments can be passed to \texttt{analysis.py} to customise the replication process:
 \begin{itemize}
@@ -84,5 +105,17 @@ Not to be confused with the all-projects analysis, which runs each algorithm on 
 \begin{verbatim}
 (venv) python analysis.py --algorithm=final --project=all --repetitions=5
 \end{verbatim}
+
+
+\section*{Tool Usage Replication}
+
+\begin{verbatim}
+(venv) python tool.py --file=test.txt
+(venv) python tool.py --file=test.txt --algorithm=baseline
+(venv) python tool.py --file=test_pos.txt
+(venv) python tool.py --file=test_pos.txt --algorithm=baseline
+\end{verbatim}
+
+These commands will run the tool on the provided sample file, using the default final algorithm or the baseline algorithm as specified. You can replace \texttt{test.txt} and \texttt{test\_pos.txt} with any text file containing bug reports to classify them using the tool.
 
 \end{document}

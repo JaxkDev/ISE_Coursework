@@ -6,11 +6,11 @@
 
 import numpy as np
 import time
-import re
 
 from tqdm import tqdm
 
 # Text and feature engineering
+import nltk
 import gensim.downloader as api
 from sklearn.preprocessing import StandardScaler
 
@@ -36,63 +36,23 @@ class SVMAlgorithm(BaseAlgorithm):
         self.vectors = None
         self.vectors_model = 'word2vec-google-news-300'  #https://huggingface.co/fse/word2vec-google-news-300/
         # glove-wiki-gigaword-300 (smaller, GloVe) or word2vec-google-news-300 (larger, Word2Vec)
+        nltk.download('stopwords', quiet=True)
+        from nltk.corpus import stopwords
+        self.stop_words = stopwords.words('english') + ['...']  # You can customize this list as needed
+    
+    def remove_stopwords(self, text):
+        """Remove stopwords from the text."""
+        return " ".join([word for word in str(text).split() if word not in self.stop_words])
 
     def preprocess_data(self) -> None:
         if self.data is None:
             raise ValueError("No data loaded. Please load a dataset before preprocessing.")
-        
-        def remove_html(text):
-            """Remove HTML tags using a regex."""
-            html = re.compile(r'<.*?>')
-            return html.sub(r'', text)
-
-        def remove_emoji(text):
-            """Remove emojis using a regex pattern."""
-            emoji_pattern = re.compile("["
-                                    u"\U0001F600-\U0001F64F"  # emoticons
-                                    u"\U0001F300-\U0001F5FF"  # symbols & pictographs
-                                    u"\U0001F680-\U0001F6FF"  # transport & map symbols
-                                    u"\U0001F1E0-\U0001F1FF"  # flags
-                                    u"\U00002702-\U000027B0"
-                                    u"\U000024C2-\U0001F251"  # enclosed characters
-                                    "]+", flags=re.UNICODE)
-            return emoji_pattern.sub(r'', text)
-
-        # Stopwords
-        import nltk
-        nltk.download('stopwords', quiet=True) # here because of UI log being annoying with the download message every time.
-        from nltk.corpus import stopwords
-
-        NLTK_stop_words_list = stopwords.words('english')
-        custom_stop_words_list = ['...']  # You can customize this list as needed
-        final_stop_words_list = NLTK_stop_words_list + custom_stop_words_list
-
-        def remove_stopwords(text):
-            """Remove stopwords from the text."""
-            return " ".join([word for word in str(text).split() if word not in final_stop_words_list])
-
-        def clean_str(string):
-            """
-            Clean text by removing non-alphanumeric characters,
-            and convert it to lowercase.
-            """
-            string = re.sub(r"[^A-Za-z0-9(),.!?\'\`]", " ", string)
-            string = re.sub(r"\'s", " \'s", string)
-            string = re.sub(r"\'ve", " \'ve", string)
-            string = re.sub(r"\)", " ) ", string)
-            string = re.sub(r"\?", " ? ", string)
-            string = re.sub(r"\s{2,}", " ", string)
-            string = re.sub(r"\\", "", string)
-            string = re.sub(r"\'", "", string)
-            string = re.sub(r"\"", "", string)
-            return string.strip().lower()
     
-        self.data['text'] = self.data['text'].apply(remove_html)
-        self.data['text'] = self.data['text'].apply(remove_emoji)
-        self.data['text'] = self.data['text'].apply(remove_stopwords)
-        self.data['text'] = self.data['text'].apply(clean_str)
+        self.data['text'] = self.data['text'].apply(self.remove_html)
+        self.data['text'] = self.data['text'].apply(self.remove_emoji)
+        self.data['text'] = self.data['text'].apply(self.remove_stopwords)
+        self.data['text'] = self.data['text'].apply(self.clean_str)
 
-        
         self.vectors = api.load(self.vectors_model)
 
     def words_to_embedding(self, text):
@@ -153,9 +113,9 @@ class SVMAlgorithm(BaseAlgorithm):
                 for text in test_text
             ])
 
-            scaler = StandardScaler()
-            X_train = scaler.fit_transform(X_train)
-            X_test = scaler.transform(X_test)
+            self.scaler = StandardScaler()
+            X_train = self.scaler.fit_transform(X_train)
+            X_test = self.scaler.transform(X_test)
 
             params = {
                 'C': [0.001, 0.01, 0.1, 1, 10, 100],  # Regularization
@@ -165,7 +125,7 @@ class SVMAlgorithm(BaseAlgorithm):
             grid = GridSearchCV(
                 clf,
                 params,
-                n_jobs=1,          # Must be 1 for reproducibility in timing; set to -1 for faster tuning if reproducibility is not a concern
+                n_jobs=-1,          # Must be 1 for reproducibility in timing; set to -1 for faster tuning if reproducibility is not a concern
                 cv=5,              # 5-fold CV (can be changed)
                 scoring='f1_macro' # Using f1_macro as the metric for selection
             )
@@ -236,4 +196,10 @@ class SVMAlgorithm(BaseAlgorithm):
         if self.model is None:
             raise ValueError("Model not loaded. Please load the model before making predictions.")
         
-        return self.model.predict([X])[0]
+        X = self.remove_html(X)
+        X = self.remove_emoji(X)
+        X = self.remove_stopwords(X)
+        X = self.clean_str(X)
+
+        X_scaled = self.scaler.transform([self.words_to_embedding(X)])
+        return self.model.predict(X_scaled)[0]

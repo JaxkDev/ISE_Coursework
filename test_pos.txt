@@ -1,0 +1,5 @@
+I’m seeing an unexpected issue with training a deep neural network for an 11-class image classification task using MXNet. The training accuracy was gradually improving and reached around 39%, but then suddenly dropped to about 9% in the following epoch and stayed around that level for the remainder of training.
+
+When I restarted training from a saved checkpoint (taken at ~39% accuracy) with the same settings, the accuracy began increasing again as expected.
+
+I’m not sure what might be causing this sudden drop or instability. It makes training difficult since I feel like I have to constantly monitor the accuracy and restart when it fails. Any idea what could be behind this behavior?

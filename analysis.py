@@ -4,6 +4,8 @@
 
 # This file contains the code for reproducing the experiments/results in the coursework report.
 
+print("Loading algorithms... (May take a moment to initialise pytorch)")
+
 import os
 import numpy as np
 import pandas as pd

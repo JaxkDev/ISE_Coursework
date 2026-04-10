@@ -5,7 +5,6 @@
 
 import numpy as np
 import time
-import re
 
 from tqdm import tqdm
 
@@ -33,42 +32,23 @@ from typing import Optional, Any
 
 class SVMAlgorithm(BaseAlgorithm):
 
+    def __init__(self):
+        super().__init__()
+        nltk.download('wordnet', quiet=True) # here because of UI log being annoying with the download message every time.
+        self.lemmatizer = WordNetLemmatizer()
+
+    def lemmatize_text(self, text):
+        """Lemmatize text using WordNetLemmatizer."""
+        return ' '.join([self.lemmatizer.lemmatize(word) for word in text.split()])
+
     def preprocess_data(self) -> None:
         if self.data is None:
             raise ValueError("No data loaded. Please load a dataset before preprocessing.")
         
-        def remove_html(text):
-            """Remove HTML tags using a regex."""
-            html = re.compile(r'<.*?>')
-            return html.sub(r'', text)
-
-        def remove_emoji(text):
-            """Remove emojis using a regex pattern."""
-            emoji_pattern = re.compile("["
-                                    u"\U0001F600-\U0001F64F"  # emoticons
-                                    u"\U0001F300-\U0001F5FF"  # symbols & pictographs
-                                    u"\U0001F680-\U0001F6FF"  # transport & map symbols
-                                    u"\U0001F1E0-\U0001F1FF"  # flags
-                                    u"\U00002702-\U000027B0"
-                                    u"\U000024C2-\U0001F251"  # enclosed characters
-                                    "]+", flags=re.UNICODE)
-            return emoji_pattern.sub(r'', text)
-
-        def lowercase_text(text):
-            """Convert text to lowercase."""
-            return text.lower()
-
-        nltk.download('wordnet')
-        lemmatizer = WordNetLemmatizer()
-
-        def lemmatize_text(text):
-            """Lemmatize text using WordNetLemmatizer."""
-            return ' '.join([lemmatizer.lemmatize(word) for word in text.split()])
-        
-        self.data['text'] = self.data['text'].apply(remove_html)
-        self.data['text'] = self.data['text'].apply(remove_emoji)
-        self.data['text'] = self.data['text'].apply(lowercase_text)
-        self.data['text'] = self.data['text'].apply(lemmatize_text)
+        self.data['text'] = self.data['text'].apply(self.remove_html)
+        self.data['text'] = self.data['text'].apply(self.remove_emoji)
+        self.data['text'] = self.data['text'].apply(self.lowercase_text)
+        self.data['text'] = self.data['text'].apply(self.lemmatize_text)
 
 
     def load_model(self, fresh: bool = True) -> None:
@@ -90,7 +70,7 @@ class SVMAlgorithm(BaseAlgorithm):
         train_times = []
         pred_times  = []
         for repeated_time in tqdm(range(repetitions), desc=f"Training {repetitions} repetitions"):
-            # Split into train/test (70/30) with stratification for class balance
+            # Train/test split (70/30) with stratification for class balance
             indices = np.arange(self.data.shape[0])
             train_index, test_index = train_test_split(
                 indices, test_size=0.3, random_state=repeated_time, stratify=self.data['sentiment'] #class balance stratification
@@ -102,13 +82,13 @@ class SVMAlgorithm(BaseAlgorithm):
             y_train = self.data['sentiment'].iloc[train_index]
             y_test  = self.data['sentiment'].iloc[test_index]
         
-            tfidf = TfidfVectorizer(
+            self.tfidf = TfidfVectorizer(
                 ngram_range=(1, 2),
-                max_features=5000,  # Adjust as needed
+                max_features=5000,
                 sublinear_tf=True
             )
-            X_train = tfidf.fit_transform(train_text)
-            X_test = tfidf.transform(test_text)
+            X_train = self.tfidf.fit_transform(train_text)
+            X_test = self.tfidf.transform(test_text)
 
             pipeline = Pipeline([
                 ('chi2', SelectKBest(chi2)),
@@ -119,7 +99,6 @@ class SVMAlgorithm(BaseAlgorithm):
                 ))
             ])
 
-            # ========== Hyperparameter grid ==========
             # GridSearch now tunes chi2 k AND SVM C together:
             params = {
                 'chi2__k': [100, 250, 500, 750, 1000],
@@ -127,7 +106,7 @@ class SVMAlgorithm(BaseAlgorithm):
             }
         
             # Linear SVC model & GridSearch
-            grid = GridSearchCV(pipeline, params, cv=5, scoring='f1_macro', n_jobs=1) # Must be 1 for reproducibility in timing; set to -1 for faster tuning if reproducibility is not a concern
+            grid = GridSearchCV(pipeline, params, cv=5, scoring='f1_macro', n_jobs=-1) # Must be 1 for reproducibility in timing; set to -1 for faster tuning if reproducibility is not a concern
             grid.fit(X_train, y_train)
 
             # Train the best model (for timings, we could just use best estimator straight away but to be consistent for timing recordings, we retrain it here)
@@ -195,4 +174,11 @@ class SVMAlgorithm(BaseAlgorithm):
         if self.model is None:
             raise ValueError("Model not loaded. Please load the model before making predictions.")
         
-        return self.model.predict([X])[0]
+        X = self.remove_html(X)
+        X = self.remove_emoji(X)
+        X = self.lowercase_text(X)
+        X = self.lemmatize_text(X)
+
+        X_vector = self.tfidf.transform([X])
+        
+        return self.model.predict(X_vector)[0]

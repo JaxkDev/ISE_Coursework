@@ -73,10 +73,18 @@
     \item GPU: Apple M1 GPU (8 cores)
 \end{itemize}
 
+\textbf{System 3 (Linux Laptop)}
+\begin{itemize}
+    \item OS: Fedora 43 (Asahi - ARM64)
+    \item CPU: Apple M1 (8 cores)
+    \item RAM: 8GB (Unified Memory)
+    \item GPU: Apple M1 GPU (8 cores)
+\end{itemize}
+
 \subsection*{Recommended Requirements}
 
 \begin{itemize}
-    \item \textbf{Operating System:} Windows 10/11 (64-bit) or macOS (64-bit)
+    \item \textbf{Operating System:} Windows 10/11 (64-bit), macOS (64-bit), Linux (64-bit)
     \item \textbf{CPU:} $\geq$ Quad-core (e.g., Intel Core i5 / AMD Ryzen 5)
     \item \textbf{RAM:} $\geq$ 16GB
     \item \textbf{Storage:} $\geq$ 7GB free space (for models)
@@ -90,9 +98,9 @@ Linux users should be able to run the code on similar hardware (GPU not required
 
 \section*{Software Requirements}
 \begin{itemize}
-    \item Python 3.12.8
-    \item Git
-    \item Git LFS (for handling large files like datasets and models)
+    \item Python 3.12.8 (https://www.python.org/downloads/release/python-3128/)
+    \item Git (https://git-scm.com)
+    \item Git LFS (https://git-lfs.com)
 \end{itemize}
 
 
@@ -103,17 +111,19 @@ Linux users should be able to run the code on similar hardware (GPU not required
 
 It is recommended to use a virtual environment (e.g., venv, conda) to manage Python dependencies and avoid conflicts with system packages.
 \begin{verbatim}
+python --version  # Ensure Python 3.12.x is installed and currently active
 python -m venv venv
 source venv/bin/activate  # On Windows: venv\Scripts\activate
 \end{verbatim}
 
-On Windows and MacOS, required packages are locked and listed in \texttt{requirements.txt} and can be installed via pip:
+Required packages are locked and listed in \texttt{requirements.txt} and can be installed via pip:
 \begin{verbatim}
 (venv) pip install -r requirements.txt
 \end{verbatim}
 
 \subsubsection*{requirements.txt}
 \begin{verbatim}
+--extra-index-url https://download.pytorch.org/whl/cpu
 accelerate==1.13.0
 annotated-doc==0.0.4
 anyio==4.13.0
@@ -164,8 +174,8 @@ smart_open==7.6.0
 sympy==1.14.0
 threadpoolctl==3.6.0
 tokenizers==0.22.2
-torch==2.11.0
-torchvision==0.26.0
+torch==2.11.0+cpu
+torchvision==0.26.0+cpu
 tqdm==4.67.3
 transformers==5.6.2
 typer==0.24.2
@@ -176,14 +186,10 @@ wrapt==2.1.2
 
 \subsection*{Linux OS Notes}
 
-PyTorch may not install nicely on Linux, please do not mark down due to this, this is completely out of my control. The code should run without GPU support, albeit much slower.
+While these steps worked ok on my machines, PyTorch may not install nicely on Linux.
+
+Please please do not mark down due to this, this is completely out of my control. The code should run without GPU support, albeit much slower.
 
 I have specifically not used the GPU to make this as compatible as possible, please visit \url{https://pytorch.org/get-started/locally/} if the requirement cannot automatically be met.
-
-For users who have trouble installing PyTorch with the default requirements file, you can try installing it via:
-\begin{verbatim}
-(venv) pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu
-\end{verbatim}
-otherwise visit the PyTorch website for more installation options.
 
 \end{document}
