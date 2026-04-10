@@ -51,9 +51,38 @@
 
 \fontsize{11}{16}\selectfont
 \setlength{\parindent}{0pt} % Paragraph indent
-\setlength{\parskip}{2pt}   % Space between paragraphs
+\setlength{\parskip}{4pt}   % Space between paragraphs
 
 \section*{Replication}
-TODO: ADD.
+
+See \texttt{requirements.pdf} before running anything to ensure you have the necessary hardware and software requirements. As well as a correct virtual environment setup with the required dependencies installed.
+
+\begin{verbatim}
+(venv) python analysis.py
+\end{verbatim}
+
+This will run the full analysis, replicating the results for all algorithms across all projects. Note that the improved\_6 algorithm (BERT-based) is very time-consuming to train, so by default it will only run one repetition for each project.
+
+The replicated results will be saved in the \texttt{results\_replicated} folder, with the same structure as the original \texttt{results} folder. Each algorithm will have its own subfolder, and within each subfolder there will be CSV files for each project and repetition.
+
+\subsection*{Custom Replication}
+
+The following arguments can be passed to \texttt{analysis.py} to customise the replication process:
+\begin{itemize}
+    \item \texttt{--algorithm}: Specify which algorithm(s) to replicate. Can be one or more of \texttt{baseline}, \texttt{improved\_1}, \texttt{improved\_2}, \texttt{improved\_3}, \texttt{improved\_4}, \texttt{improved\_5}, \texttt{improved\_6}, \texttt{final}, \texttt{*}. Default is * algorithms.
+    \item \texttt{--project}: Specify which project(s) to replicate. Can be one or more of \texttt{caffe}, \texttt{incubator-mxnet}, \texttt{keras}, \texttt{pytorch}, \texttt{tensorflow}, \texttt{all}, \texttt{*}. Default is * projects.
+    \item \texttt{--repetitions}: Specify how many repetitions to run for each algorithm and project. Default is 10, 20 and 50 repetitions combined (except for improved\_6 which defaults to 1 repetition due to time constraints).
+    \item \texttt{--use-cached-models}: Whether to use cached pre-trained models if available, or always train from scratch. Default is to use cached models if available. Can be set to \texttt{true} or \texttt{false}.
+\end{itemize}
+
+Example, to replicate only the final algorithm all individual projects with 2 repetitions, you would run:
+\begin{verbatim}
+(venv) python analysis.py --algorithm=final --project=* --repetitions=2
+\end{verbatim}
+
+Not to be confused with the all-projects analysis, which runs each algorithm on a combined dataset of all projects. To replicate the all-projects analysis for the final algorithm with 5 repetitions, you would run:
+\begin{verbatim}
+(venv) python analysis.py --algorithm=final --project=all --repetitions=5
+\end{verbatim}
 
 \end{document}

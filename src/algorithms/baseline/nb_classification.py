@@ -12,20 +12,11 @@
 
 
 
-
-
-
-## LOOP CONFIGURATIONS:
-PROJECTS = ['pytorch', 'tensorflow', 'keras', 'incubator-mxnet', 'caffe', 'all']
-REPEAT_TIMES = [10, 20, 50]
-
-
-########## 1. Import required libraries ##########
-
-import pandas as pd
 import numpy as np
 import time
 import re
+
+from tqdm import tqdm
 
 # Text and feature engineering
 from sklearn.feature_extraction.text import TfidfVectorizer
@@ -38,126 +29,78 @@ from sklearn.metrics import (accuracy_score, confusion_matrix, matthews_corrcoef
 # Classifier
 from sklearn.naive_bayes import GaussianNB
 
-# Text cleaning & stopwords
-import nltk
-nltk.download('stopwords')
-from nltk.corpus import stopwords
+# Base class
+from src.algorithms.algorithms import BaseAlgorithm
+
+from typing import Optional, Any
 
 
-########## 2. Define text preprocessing methods ##########
+class NBAlgorithm(BaseAlgorithm):
 
-def remove_html(text):
-    """Remove HTML tags using a regex."""
-    html = re.compile(r'<.*?>')
-    return html.sub(r'', text)
+    def preprocess_data(self) -> None:
+        if self.data is None:
+            raise ValueError("No data loaded. Please load a dataset before preprocessing.")
+        
+        def remove_html(text):
+            """Remove HTML tags using a regex."""
+            html = re.compile(r'<.*?>')
+            return html.sub(r'', text)
 
-def remove_emoji(text):
-    """Remove emojis using a regex pattern."""
-    emoji_pattern = re.compile("["
-                               u"\U0001F600-\U0001F64F"  # emoticons
-                               u"\U0001F300-\U0001F5FF"  # symbols & pictographs
-                               u"\U0001F680-\U0001F6FF"  # transport & map symbols
-                               u"\U0001F1E0-\U0001F1FF"  # flags
-                               u"\U00002702-\U000027B0"
-                               u"\U000024C2-\U0001F251"  # enclosed characters
-                               "]+", flags=re.UNICODE)
-    return emoji_pattern.sub(r'', text)
+        def remove_emoji(text):
+            """Remove emojis using a regex pattern."""
+            emoji_pattern = re.compile("["
+                                    u"\U0001F600-\U0001F64F"  # emoticons
+                                    u"\U0001F300-\U0001F5FF"  # symbols & pictographs
+                                    u"\U0001F680-\U0001F6FF"  # transport & map symbols
+                                    u"\U0001F1E0-\U0001F1FF"  # flags
+                                    u"\U00002702-\U000027B0"
+                                    u"\U000024C2-\U0001F251"  # enclosed characters
+                                    "]+", flags=re.UNICODE)
+            return emoji_pattern.sub(r'', text)
 
-# Stopwords
-NLTK_stop_words_list = stopwords.words('english')
-custom_stop_words_list = ['...']  # You can customize this list as needed
-final_stop_words_list = NLTK_stop_words_list + custom_stop_words_list
+        # Stopwords
+        import nltk
+        nltk.download('stopwords', quiet=True)
+        from nltk.corpus import stopwords
 
-def remove_stopwords(text):
-    """Remove stopwords from the text."""
-    return " ".join([word for word in str(text).split() if word not in final_stop_words_list])
+        NLTK_stop_words_list = stopwords.words('english')
+        custom_stop_words_list = ['...']  # You can customize this list as needed
+        final_stop_words_list = NLTK_stop_words_list + custom_stop_words_list
 
-def clean_str(string):
-    """
-    Clean text by removing non-alphanumeric characters,
-    and convert it to lowercase.
-    """
-    string = re.sub(r"[^A-Za-z0-9(),.!?\'\`]", " ", string)
-    string = re.sub(r"\'s", " \'s", string)
-    string = re.sub(r"\'ve", " \'ve", string)
-    string = re.sub(r"\)", " ) ", string)
-    string = re.sub(r"\?", " ? ", string)
-    string = re.sub(r"\s{2,}", " ", string)
-    string = re.sub(r"\\", "", string)
-    string = re.sub(r"\'", "", string)
-    string = re.sub(r"\"", "", string)
-    return string.strip().lower()
+        def remove_stopwords(text):
+            """Remove stopwords from the text."""
+            return " ".join([word for word in str(text).split() if word not in final_stop_words_list])
 
-########## 3. Download & read data ##########
-import os
-
-if not os.path.exists('./src/algorithms/baseline/tmp'):
-    os.makedirs('./src/algorithms/baseline/tmp')
-
-for project in PROJECTS:
-
-    pd_all = pd.DataFrame()
-
-    if project == 'all':
-        # If 'all', read and concatenate all project files
-        for proj in ['pytorch', 'tensorflow', 'keras', 'incubator-mxnet', 'caffe']:
-            path = f'{proj}.csv'
-            pd_temp = pd.read_csv("./dataset/"+path)
-            pd_all = pd.concat([pd_all, pd_temp], ignore_index=True)
-            pd_all = pd_all.sample(frac=1, random_state=51003)  # Shuffle
-    else:
-        path = f'{project}.csv'
-        pd_all = pd.read_csv("./dataset/"+path)
-        pd_all = pd_all.sample(frac=1, random_state=51003)  # Shuffle
-
-    # Merge Title and Body into a single column; if Body is NaN, use Title only
-    pd_all['Title+Body'] = pd_all.apply(
-        lambda row: row['Title'] + '. ' + row['Body'] if pd.notna(row['Body']) else row['Title'],
-        axis=1
-    )
-
-    # Keep only necessary columns: id, Number, sentiment, text (merged Title+Body)
-    pd_tplusb = pd_all.rename(columns={
-        "Unnamed: 0": "id",
-        "class": "sentiment",
-        "Title+Body": "text"
-    })
-    pd_tplusb.to_csv('./src/algorithms/baseline/tmp/'+project+'_Title+Body.csv', index=False, columns=["id", "Number", "sentiment", "text"])
-
-    ########## 4. Configure parameters & Start training ##########
-
-    # ========== Key Configurations ==========
-
-    # 1) Data file to read
-    datafile = './src/algorithms/baseline/tmp/' + project + '_Title+Body.csv'
-
-    # 3) Output CSV file name
-    if not os.path.exists('./results/baseline'):
-        os.makedirs('./results/baseline')
-    out_csv_name = f'./results/baseline/{project}_NB.csv'
-
-    # ========== Read and clean data ==========
-    data = pd.read_csv(datafile).fillna('')
-    text_col = 'text'
-
-    # Keep a copy for referencing original data if needed
-    original_data = data.copy()
-
-    # Text cleaning
-    data[text_col] = data[text_col].apply(remove_html)
-    data[text_col] = data[text_col].apply(remove_emoji)
-    data[text_col] = data[text_col].apply(remove_stopwords)
-    data[text_col] = data[text_col].apply(clean_str)
-
-    # ========== Hyperparameter grid ==========
-    # We use logspace for var_smoothing: [1e-12, 1e-11, ..., 1]
-    params = {
-        'var_smoothing': np.logspace(-12, 0, 13)
-    }
+        def clean_str(string):
+            """
+            Clean text by removing non-alphanumeric characters,
+            and convert it to lowercase.
+            """
+            string = re.sub(r"[^A-Za-z0-9(),.!?\'\`]", " ", string)
+            string = re.sub(r"\'s", " \'s", string)
+            string = re.sub(r"\'ve", " \'ve", string)
+            string = re.sub(r"\)", " ) ", string)
+            string = re.sub(r"\?", " ? ", string)
+            string = re.sub(r"\s{2,}", " ", string)
+            string = re.sub(r"\\", "", string)
+            string = re.sub(r"\'", "", string)
+            string = re.sub(r"\"", "", string)
+            return string.strip().lower()
+    
+        self.data['text'] = self.data['text'].apply(remove_html)
+        self.data['text'] = self.data['text'].apply(remove_emoji)
+        self.data['text'] = self.data['text'].apply(remove_stopwords)
+        self.data['text'] = self.data['text'].apply(clean_str)
 
 
-    for REPEAT in REPEAT_TIMES:
-        print(f"\n--- [Baseline] Running Naive Bayes + TF-IDF for project: {project} with {REPEAT} repeats ---")
+    def load_model(self, fresh: bool = True) -> None:
+        pass  # No model to load
+
+
+    def train(self, repetitions: int = 10, seed: Optional[int] = 51003) -> dict[str, Any]:
+        if self.data is None:
+            raise ValueError("No data loaded. Please load a dataset before training.")
+        
         # Lists to store metrics across repeated runs
         accuracies  = []
         precisions  = []
@@ -165,36 +108,43 @@ for project in PROJECTS:
         f1_scores   = []
         auc_values  = []
         mcc_values  = []
-        cm_sum = np.array([[0, 0], [0, 0]])  # Initialize confusion matrix sum
+        cm_values   = []
         train_times = []
         pred_times  = []
-        for repeated_time in range(REPEAT):
-            # --- 4.1 Split into train/test ---
-            indices = np.arange(data.shape[0])
+        for repeated_time in tqdm(range(repetitions), desc=f"Training {repetitions} repetitions"):
+    
+            # Split into train/test (70/30 split, stratified by class)
+            indices = np.arange(self.data.shape[0])
             train_index, test_index = train_test_split(
-                indices, test_size=0.3, random_state=repeated_time, stratify=data['sentiment'] #class balance stratification
+                indices,
+                test_size=0.3,
+                random_state=repeated_time,
+                stratify=self.data['sentiment'] #class balance stratification
             )
 
-            train_text = data[text_col].iloc[train_index]
-            test_text = data[text_col].iloc[test_index]
+            train_text = self.data['text'].iloc[train_index]
+            test_text = self.data['text'].iloc[test_index]
 
-            y_train = data['sentiment'].iloc[train_index]
-            y_test  = data['sentiment'].iloc[test_index]
+            y_train = self.data['sentiment'].iloc[train_index]
+            y_test  = self.data['sentiment'].iloc[test_index]
 
-            # --- 4.2 TF-IDF vectorization ---
+            # TF-IDF vectorization
             tfidf = TfidfVectorizer(
                 ngram_range=(1, 2),
-                max_features=1000  # Adjust as needed
+                max_features=1000
             )
             X_train = tfidf.fit_transform(train_text).toarray()
             X_test = tfidf.transform(test_text).toarray()
+
+            params = {
+                'var_smoothing': np.logspace(-12, 0, 13)
+            }
         
-            # --- 4.3 Naive Bayes model & GridSearch ---
             clf = GaussianNB()
             grid = GridSearchCV(
                 clf,
                 params,
-                n_jobs=-1,         # Use all available cores
+                n_jobs=1,          # Must be 1 for reproducibility in timing; set to -1 for faster tuning if reproducibility is not a concern
                 cv=5,              # 5-fold CV (can be changed)
                 scoring='f1_macro' # Using f1_macro as the metric for selection
             )
@@ -203,16 +153,16 @@ for project in PROJECTS:
             # Train the best model (for timings, we could just use best estimator straight away but to be consistent for timing recordings, we retrain it here)
             TRAIN_TIME = time.perf_counter_ns()
 
-            best_clf = GaussianNB(**grid.best_params_)
-            best_clf.fit(X_train, y_train)
+            self.model = GaussianNB(**grid.best_params_)
+            self.model.fit(X_train, y_train)
 
             TRAIN_TIME = time.perf_counter_ns() - TRAIN_TIME
             train_times.append(TRAIN_TIME)
 
             PRED_TIME = time.perf_counter_ns()
 
-            # --- 4.4 Make predictions & evaluate ---
-            y_pred = best_clf.predict(X_test)
+            # Evaluate on test set
+            y_pred = self.model.predict(X_test)
 
             PRED_TIME = time.perf_counter_ns() - PRED_TIME
             pred_times.append(PRED_TIME)
@@ -234,7 +184,7 @@ for project in PROJECTS:
             f1_scores.append(f1)
 
             # AUC
-            y_score = best_clf.predict_proba(X_test)[:, 1]
+            y_score = self.model.predict_proba(X_test)[:, 1]
             fpr, tpr, _ = roc_curve(y_test, y_score)
             auc_val = auc(fpr, tpr)
             auc_values.append(auc_val)
@@ -245,55 +195,23 @@ for project in PROJECTS:
 
             # Confusion Matrix
             cm = confusion_matrix(y_test, y_pred) # [[tn, fp], [fn, tp]]
-            cm_sum += cm
+            cm_values.append(cm)
 
-        # --- 4.5 Aggregate results ---
-        final_accuracy  = np.mean(accuracies)
-        final_precision = np.mean(precisions)
-        final_recall    = np.mean(recalls)
-        final_f1        = np.mean(f1_scores)
-        final_auc       = np.mean(auc_values)
-        final_train_time = np.mean(train_times, dtype=np.int64)
-        final_pred_time  = np.mean(pred_times, dtype=np.int64)
-        final_mcc        = np.mean(mcc_values)
-        final_cm        = cm_sum / REPEAT  # Average confusion matrix
+        return {
+            'training_time': train_times,
+            'prediction_time': pred_times,
+            'accuracy': accuracies,
+            'precision': precisions,
+            'recall': recalls,
+            'f1': f1_scores,
+            'auc': auc_values,
+            'mcc': mcc_values,
+            'cm': cm_values
+        }
 
-        #print("=== Naive Bayes + TF-IDF Results ===")
-        print(f"Number of repeats:       {REPEAT}")
-        print(f"Average Training Time:   {final_train_time}")
-        print(f"Average Prediction Time: {final_pred_time}")
-        print(f"Average Accuracy:        {final_accuracy:.4f}")
-        print(f"Average Precision:       {final_precision:.4f}")
-        print(f"Average Recall:          {final_recall:.4f}")
-        print(f"Average F1 score:        {final_f1:.4f}")
-        print(f"Average AUC:             {final_auc:.4f}")
-        print(f"Average MCC:             {final_mcc:.4f}")
-        print(f"Average Confusion Matrix:\n{final_cm}")
 
-        # Save final results to CSV (append mode)
-        try:
-            # Attempt to check if the file already has a header
-            existing_data = pd.read_csv(out_csv_name, nrows=1)
-            header_needed = False
-        except:
-            header_needed = True
+    def predict(self, X: str) -> int:
+        if self.model is None:
+            raise ValueError("Model not loaded. Please load the model before making predictions.")
 
-        df_log = pd.DataFrame(
-            {
-                'repeated_times': [REPEAT],
-                'Training_Time': [final_train_time],
-                'Prediction_Time': [final_pred_time],
-                'Accuracy': [final_accuracy],
-                'Precision': [final_precision],
-                'Recall': [final_recall],
-                'F1': [final_f1],
-                'AUC': [final_auc],
-                'MCC': [final_mcc],
-                'CM': [final_cm.tolist()],  # Store confusion matrix as a list [[tn, fp], [fn, tp]]
-                'CV_list(AUC)': [str(auc_values)]
-            }
-        )
-
-        df_log.to_csv(out_csv_name, mode='a', header=header_needed, index=False)
-
-    print(f"\nResults have been saved to: {out_csv_name}")
+        return self.model.predict([X])[0]

@@ -51,7 +51,7 @@
 
 \fontsize{11}{16}\selectfont
 \setlength{\parindent}{0pt} % Paragraph indent
-\setlength{\parskip}{2pt}   % Space between paragraphs
+\setlength{\parskip}{4pt}   % Space between paragraphs
 
 \section*{Hardware Requirements}
 
@@ -79,7 +79,7 @@
     \item \textbf{Operating System:} Windows 10/11 (64-bit) or macOS (64-bit)
     \item \textbf{CPU:} $\geq$ Quad-core (e.g., Intel Core i5 / AMD Ryzen 5)
     \item \textbf{RAM:} $\geq$ 16GB
-    \item \textbf{Storage:} $\geq$ 5GB free space (for models)
+    \item \textbf{Storage:} $\geq$ 7GB free space (for models)
 \end{itemize}
 
 
@@ -101,9 +101,15 @@ Linux users should be able to run the code on similar hardware (GPU not required
 
 \section*{Python Dependencies}
 
+It is recommended to use a virtual environment (e.g., venv, conda) to manage Python dependencies and avoid conflicts with system packages.
+\begin{verbatim}
+python -m venv venv
+source venv/bin/activate  # On Windows: venv\Scripts\activate
+\end{verbatim}
+
 On Windows and MacOS, required packages are locked and listed in \texttt{requirements.txt} and can be installed via pip:
 \begin{verbatim}
-pip install -r requirements.txt
+(venv) pip install -r requirements.txt
 \end{verbatim}
 
 \subsubsection*{requirements.txt}
@@ -176,13 +182,8 @@ I have specifically not used the GPU to make this as compatible as possible, ple
 
 For users who have trouble installing PyTorch with the default requirements file, you can try installing it via:
 \begin{verbatim}
-pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu
+(venv) pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu
 \end{verbatim}
 otherwise visit the PyTorch website for more installation options.
-
-
-
-In the extreme case that you cannot use another machine and cannot get PyTorch working,
-TODO: Add instructions for running without pytorch (improved-6)... if possible?
 
 \end{document}

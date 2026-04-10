@@ -56,7 +56,7 @@ def print_dataset_details():
         print(f"    {label}: {count} / {total_instances} ({(count/total_instances) * 100:.2f}%)")
 
 
-def preprocess_datasets():
+def preprocess_datasets(seed: int = 51003) -> None:
     for project in DATASETS + ['all']:
         pd_all = pd.DataFrame()
 
@@ -66,11 +66,11 @@ def preprocess_datasets():
                 path = f'{proj}.csv'
                 pd_temp = pd.read_csv(DATA_DIR + path)
                 pd_all = pd.concat([pd_all, pd_temp], ignore_index=True)
-                pd_all = pd_all.sample(frac=1, random_state=51003)  # Shuffle
+                pd_all = pd_all.sample(frac=1, random_state=seed)  # Shuffle
         else:
             path = f'{project}.csv'
             pd_all = pd.read_csv(DATA_DIR + path)
-            pd_all = pd_all.sample(frac=1, random_state=51003)  # Shuffle
+            pd_all = pd_all.sample(frac=1, random_state=seed)  # Shuffle
 
         # Merge Title and Body into a single column; if Body is NaN, use Title only
         pd_all['Title+Body'] = pd_all.apply(
@@ -87,6 +87,31 @@ def preprocess_datasets():
         pd_all.to_csv(DATA_DIR + project + '_processed.csv', index=False, columns=["id", "Number", "sentiment", "text"])
         print(f"Processed {project} dataset saved to {project}_processed.csv")
 
+
+def load_dataset(name: str) -> pd.DataFrame:
+    """
+    Load a dataset from an identifier string (eg "caffe", "pytorch", etc)
+
+    Parameters
+    ----------
+    name : str
+        The name of the dataset to load.
+
+    Returns
+    -------
+    pd.DataFrame
+        The loaded dataset as a pandas DataFrame.
+    """
+    if name not in DATASETS and name != 'all':
+        raise ValueError(f"Dataset '{name}' not found. Available datasets: {DATASETS + ['all']}")
+
+    path = f"{DATA_DIR}{name}_processed.csv"
+    if not os.path.exists(path):
+        preprocess_datasets()  # Preprocess datasets if the processed file doesn't exist
+        if not os.path.exists(path):
+            raise FileNotFoundError(f"Processed dataset file '{path}' not found. Please run preprocess_datasets() first.")
+
+    return pd.read_csv(path)
 
 if __name__ == "__main__":
     print_dataset_details()

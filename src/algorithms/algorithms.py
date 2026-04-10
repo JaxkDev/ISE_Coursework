@@ -2,20 +2,7 @@ from abc import ABC, abstractmethod
 from typing import Optional, Union, Any
 from numpy.typing import ArrayLike, NDArray #use this to match predict sig from the lib.
 
-import numpy as np
-import pandas as pd
-
-# Other Algorithms
-# from src.algorithms.baseline.nb_classification import NBAlgorithm as BaselineAlgorithm
-# from src.algorithms.improved_1.svm_classification import SVMAlgorithm as Improved1Algorithm
-# from src.algorithms.improved_2.svm_classification import SVMAlgorithm as Improved2Algorithm
-# from src.algorithms.improved_3.rf_classification import RFAlgorithm as Improved3Algorithm
-# from src.algorithms.improved_4.svm_classification import SVMAlgorithm as Improved4Algorithm
-# from src.algorithms.improved_5.svm_classification import SVMAlgorithm as Improved5Algorithm
-# from src.algorithms.improved_6.bert_classification import BERTAlgorithm as Improved6Algorithm
-#...
-
-from src.dataset import print_dataset_details, preprocess_datasets
+from src.dataset import print_dataset_details, preprocess_datasets, load_dataset
 
 class BaseAlgorithm(ABC):
     """
@@ -25,10 +12,9 @@ class BaseAlgorithm(ABC):
 
     def __init__(self) -> None:
         """Initialise the model with no data or internal state."""
-        self.data = pd.DataFrame()  # placeholder for loaded dataset
-        self.model = None           # placeholder for the actual model
+        self.data = None  # placeholder for loaded dataset
+        self.model = None # placeholder for the actual model
 
-    @abstractmethod
     def load_dataset(self, name: str) -> None:
         """
         Load a dataset from a file path or an identifier string (eg "caffe", "pytorch", etc)
@@ -38,20 +24,9 @@ class BaseAlgorithm(ABC):
         name : str
             The name or path of the dataset to load.
         """
-        raise NotImplementedError("Method 'load_dataset' not implemented.")
+        self.data = load_dataset(name)
+        self.project = name  # Store the project name for later use in model saving/loading
 
-    @abstractmethod
-    def load_data(self, raw_csv: Any) -> None:
-        """
-        Load data from a raw CSV object (e.g., file-like object or string).
-
-        Parameters
-        ----------
-        raw_csv : file-like object or str
-            The raw CSV content to parse and load.
-        """
-        raise NotImplementedError("Method 'load_data' not implemented.")
-    
     @abstractmethod
     def preprocess_data(self) -> None:
         """
@@ -73,45 +48,37 @@ class BaseAlgorithm(ABC):
         raise NotImplementedError("Method 'load_model' not implemented.")
 
     @abstractmethod
-    def pre_train(self, seed: Optional[int] = None) -> None:
-        """
-        Perform any necessary preprocessing or unsupervised pre-training.
-
-        Parameters
-        ----------
-        seed : int or None, default=None
-            Optional random seed for reproducibility.
-        """
-        raise NotImplementedError("Method 'pre_train' not implemented.")
-
-    @abstractmethod
-    def train(self, seed: Optional[int] = None) -> None:
+    def train(self, repetitions: int = 10, seed: Optional[int] = 51003) -> dict[str, Any]:
         """
         Train the model using the loaded data.
 
         Parameters
         ----------
-        seed : int or None, default=None
+        repetitions : int, default=10
+            The number of times to repeat the training process.
+        seed : int or None, default=51003
             Optional random seed for reproducibility.
+
+        Returns
+        -------
+        metrics : dict
+            A dictionary containing evaluation metrics (e.g., accuracy, precision) for the trained model on the test set over all repetitions.
         """
         raise NotImplementedError("Method 'train' not implemented.")
 
     @abstractmethod
-    def predict(self, X: ArrayLike) -> NDArray[Any]:
+    def predict(self, X: str) -> int:
         """
         Make predictions using the trained model.
 
-        This signature matches the common scikit‑learn / numpy predict
-        interface, accepting any array-like input and returning a numpy ndarray.
-
         Parameters
         ----------
-        X : array-like of shape (n_samples, n_features)
-            Input samples.
+        X : str
+            The input text to predict.
 
         Returns
         -------
-        y_pred : ndarray of shape (n_samples,) or (n_samples, n_outputs)
-            Predicted values.
+        y_pred : int
+            Predicted value. 0 for negative sentiment, 1 for positive sentiment (not a bug, a bug)
         """
         raise NotImplementedError("Method 'predict' not implemented.")
