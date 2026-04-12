@@ -63,10 +63,45 @@ git clone https://github.com/jaxkdev/ise_coursework
 
 \textit{Note: cloning will take as long as it takes to download 2.5GB of data, so please be patient.}
 
-Please read the \texttt{requirements.pdf} file before running anything to ensure you have the necessary hardware and software requirements. As well as a correct virtual environment setup with the required dependencies installed.
+Please read the \texttt{requirements.pdf} file before running anything to ensure you have the necessary hardware and software requirements.
+\textbf{As well as a correct virtual environment setup with the required dependencies installed.}
 
 \vspace{10px}
 
 \section*{Manual}
+
+\subsection*{Algorithm Training and Evaluation}
+
+To fully train and evaluate all algorithms on all projects from scratch, you can run the following command:
+\begin{verbatim}
+(venv) python analysis.py --cached_models=False
+\end{verbatim}
+
+Omitting the \texttt{--cached\_models=False} flag will use the cached pre-trained models instead of training from scratch, which will be much faster but will also omit training times.
+
+\subsection*{Dataset Evaluation and Preprocessing}
+
+To view statistics used in the coursework and to verify datasets used, you can run the following command:
+\begin{verbatim}
+(venv) python src/dataset.py
+\end{verbatim}
+
+
+\subsection*{CLI Tool Usage}
+
+The product (CLI Tool) can be used to make predictions on new bug reports using the algorithms. To use the CLI tool, run the following command:
+\begin{verbatim}
+(venv) python tool.py --file=path/to/bug_report.txt
+\end{verbatim}
+
+Where \texttt{path/to/bug\_report.txt} is the path to a text file containing the bug report you want to classify. The tool will output the predicted class for the bug report using the final algorithm.
+
+To select a different algorithm, you can use the \texttt{--algorithm} flag followed by the name of the algorithm you want to use (e.g., \texttt{baseline}, \texttt{improved\_1}, etc.). For example:
+\begin{verbatim}
+(venv) python tool.py --file=path/to/bug_report.txt --algorithm=baseline
+(venv) python tool.py --file=path/to/bug_report.txt --algorithm=improved_3
+\end{verbatim}
+
+
 
 \end{document}

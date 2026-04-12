@@ -79,7 +79,8 @@ even going down to 1 process ($n\_jobs=1$) to try but still small variations on 
 \section*{Replication}
 
 \begin{verbatim}
-(venv) python analysis.py
+(venv) python src/dataset.py  # To view dataset details.
+(venv) python analysis.py     # To run full replication of all results.
 \end{verbatim}
 
 This will run the full analysis, replicating the results for all algorithms across all projects. Note that the improved\_6 algorithm (BERT-based) is very time-consuming to train, so by default it will only run one repetition for each project.
