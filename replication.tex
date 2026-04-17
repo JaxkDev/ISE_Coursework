@@ -119,4 +119,16 @@ Not to be confused with the all-projects analysis, which runs each algorithm on 
 
 These commands will run the tool on the provided sample file, using the default final algorithm or the baseline algorithm as specified. You can replace \texttt{test.txt} and \texttt{test\_pos.txt} with any text file containing bug reports to classify them using the tool.
 
+
+\section*{Graphs Replication}
+
+\underline{\textbf{This cannot be ran until ALL algorithms (Excluding 6) have been ran with 50 repetitions.}}
+
+\begin{verbatim}
+(venv) python graphs.py --folder=results_replicated --output=graphs/f1_replicated.pdf
+\end{verbatim}
+
+Use either the original \texttt{results} folder or the new \texttt{results\_replicated} folder to generate the graphs, and specify the output file name for the generated PDF.\\
+The generated graphs will be saved in the specified output file.
+
 \end{document}
